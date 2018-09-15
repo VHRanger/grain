@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>grain.functions.reduction source code</title>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+        <link rel="stylesheet" href="../style.css" />
+        <script type="text/javascript" src="../script.js"></script>
+
+    
+    <link rel="prefetch" href="../search-results.html" />
+</head>
+<body>
+    <div id="page-header">
+        <div id="logotype">
+        <span>Documentation</span>
+        <nav>
+            <a href="https://github.com/ShigekiKarita/grain">GitHub</a>
+            <a href="https://github.com/ShigekiKarita/grain/tree/master/example">Example</a>
+            <a href="http://dlang.org/">Dlang.org</a>
+        </nav>
+        </div>
+
+        <form action="search-docs.html" id="search">
+            <input type="search" placeholder="Find a symbol name..." name="searchTerm" />
+            <input type="submit" value="Go" />
+        </form>
+    </div>
+    <div id="page-body">
+        <div id="page-content">
+        <pre class="d_code highlighted with-line-wrappers"><a id="L1" href="#L1" class="br">1 </a><span class="kwrd">module</span> <span class="hid">grain.functions.reduction</span>;
+<a id="L2" href="#L2" class="br">2 </a>
+<a id="L3" href="#L3" class="br">3 </a><span class="kwrd">import</span> <span class="hid">grain.autograd</span>;
+<a id="L4" href="#L4" class="br">4 </a><span class="kwrd">import</span> <span class="hid">grain.cuda</span>;
+<a id="L5" href="#L5" class="br">5 </a><span class="kwrd">import</span> <span class="hid">grain.functions.common</span>;
+<a id="L6" href="#L6" class="br">6 </a><span class="kwrd">import</span> <span class="hid">grain.utility</span> : <span class="hid">toTuple</span>, <span class="hid">fromTuple</span>, <span class="hid">castArray</span>;
+<a id="L7" href="#L7" class="br">7 </a>
+<a id="L8" href="#L8" class="br">8 </a><span class="kwrd">struct</span> <a href="grain.functions.reduction.d.html#L8" title="grain.functions.reduction.Sum" class="hid">Sum</a>(<span class="type">string</span> <span class="hid">mode</span> = <span class="str">&quot;fast&quot;</span>, <span class="hid">T</span>, <span class="hid">size_t</span> <span class="hid">dim</span>) {
+<a id="L9" href="#L9" class="br">9 </a>    <span class="kwrd">import</span> <span class="hid">std.traits</span> : <span class="hid">isFloatingPoint</span>;
+<a id="L10" href="#L10" class="br">10 </a>    <span class="kwrd">static</span> <span class="kwrd">assert</span>(<span class="hid">isFloatingPoint</span>!<span class="hid">T</span>, <span class="str">&quot;currently only float point is supported.&quot;</span>);
+<a id="L11" href="#L11" class="br">11 </a>    <span class="kwrd">mixin</span> <a href="grain.functions.common.d.html#L62" title="grain.functions.common.FunctionCommon" class="hid">FunctionCommon</a>;
+<a id="L12" href="#L12" class="br">12 </a>
+<a id="L13" href="#L13" class="br">13 </a>    <span class="type">uint</span>[<span class="hid">dim</span>] <span class="hid">shape</span>;
+<a id="L14" href="#L14" class="br">14 </a>
+<a id="L15" href="#L15" class="br">15 </a>    <span class="kwrd">auto</span> <span class="hid">forward</span>(<a href="grain.autograd.d.html#L247" title="grain.autograd.Variable" class="hid">Variable</a>!(<span class="hid">T</span>, <span class="hid">dim</span>, <a href="grain.autograd.d.html#L19" title="grain.autograd.HostStorage" class="hid">HostStorage</a>) <span class="hid">x</span>) {
+<a id="L16" href="#L16" class="br">16 </a>        <span class="kwrd">import</span> <span class="hid">mir.math</span> : <span class="hid">sum</span>;
+<a id="L17" href="#L17" class="br">17 </a>
+<a id="L18" href="#L18" class="br">18 </a>        <span class="com">// TODO if train</span>
+<a id="L19" href="#L19" class="br">19 </a>        <span class="kwrd">this</span>.<span class="hid">shape</span> = <span class="hid">x.shape</span>;
+<a id="L20" href="#L20" class="br">20 </a>        <span class="kwrd">auto</span> <span class="hid">result</span> = <span class="hid">x.sliced.sum</span>!<span class="hid">mode</span>;
+<a id="L21" href="#L21" class="br">21 </a>        <span class="kwrd">return</span> <span class="hid">result.variable</span>;
+<a id="L22" href="#L22" class="br">22 </a>    }
+<a id="L23" href="#L23" class="br">23 </a>
+<a id="L24" href="#L24" class="br">24 </a>    <span class="kwrd">auto</span> <span class="hid">backward</span>(<a href="grain.autograd.d.html#L247" title="grain.autograd.Variable" class="hid">Variable</a>!(<span class="hid">T</span>, <span class="num">0</span>, <a href="grain.autograd.d.html#L19" title="grain.autograd.HostStorage" class="hid">HostStorage</a>) <span class="hid">y</span>) {
+<a id="L25" href="#L25" class="br">25 </a>        <span class="kwrd">auto</span> <span class="hid">gx</span> = <a href="grain.autograd.d.html#L50" title="grain.autograd.uninitVariable" class="hid">uninitVariable</a>!<span class="hid">T</span>(<span class="kwrd">this</span>.<span class="hid">shape</span>, <span class="hid">y.requiresGrad</span>);
+<a id="L26" href="#L26" class="br">26 </a>        <span class="kwrd">import</span> <span class="hid">std.algorithm</span> : <span class="hid">fill</span>;
+<a id="L27" href="#L27" class="br">27 </a>        <span class="hid">fill</span>(<span class="hid">gx.data</span>, <span class="hid">y.data</span>[<span class="num">0</span>]);
+<a id="L28" href="#L28" class="br">28 </a>        <span class="kwrd">return</span> <span class="hid">gx</span>;
+<a id="L29" href="#L29" class="br">29 </a>    }
+<a id="L30" href="#L30" class="br">30 </a>}
+<a id="L31" href="#L31" class="br">31 </a>
+<a id="L32" href="#L32" class="br">32 </a>
+<a id="L33" href="#L33" class="br">33 </a><span class="kwrd">unittest</span> {
+<a id="L34" href="#L34" class="br">34 </a>    <span class="kwrd">import</span> <span class="hid">mir.ndslice</span>;
+<a id="L35" href="#L35" class="br">35 </a>    <span class="kwrd">import</span> <span class="hid">mir.math</span>;
+<a id="L36" href="#L36" class="br">36 </a>    <span class="kwrd">auto</span> <span class="hid">x</span> = [<span class="num">1f</span>, <span class="num">2f</span>, <span class="num">3f</span>, <span class="num">4f</span>].<span class="hid">sliced</span>(<span class="num">2</span>, <span class="num">2</span>).<a href="grain.autograd.d.html#L544" title="grain.autograd.variable" class="hid">variable</a>;
+<a id="L37" href="#L37" class="br">37 </a>    <a href="grain.functions.reduction.d.html#L8" title="grain.functions.reduction.Sum" class="hid">Sum</a>!(<span class="str">&quot;fast&quot;</span>, <span class="type">float</span>, <span class="num">2</span>) <span class="hid">func</span>;
+<a id="L38" href="#L38" class="br">38 </a>    <span class="kwrd">auto</span> <span class="hid">y</span> = <span class="hid">func.forward</span>(<span class="hid">x</span>);
+<a id="L39" href="#L39" class="br">39 </a>    <span class="kwrd">assert</span>(<span class="hid">y</span> == <span class="num">10f</span>.<a href="grain.autograd.d.html#L544" title="grain.autograd.variable" class="hid">variable</a>);
+<a id="L40" href="#L40" class="br">40 </a>    <span class="kwrd">assert</span>(<span class="hid">func.backward</span>(<span class="num">1.2f</span>.<a href="grain.autograd.d.html#L544" title="grain.autograd.variable" class="hid">variable</a>) == [<span class="num">1.2f</span>, <span class="num">1.2f</span>, <span class="num">1.2f</span>, <span class="num">1.2f</span>].<span class="hid">sliced</span>(<span class="num">2</span>, <span class="num">2</span>).<a href="grain.autograd.d.html#L544" title="grain.autograd.variable" class="hid">variable</a>);
+<a id="L41" href="#L41" class="br">41 </a>}</pre></div>
+        <div id="page-nav">
+        <div id="source-navigation"><div class="list-holder"><ul><li><a href="#L1">grain.functions.reduction</a><ul><li><a href="#L8">Sum</a><ul><li><a href="#L11">__anonymous</a></li><li><a href="#L13">shape</a></li><li><a href="#L15">forward</a></li><li><a href="#L24">backward</a></li></ul></li></ul></li></ul></div></div></div>
+    </div>
+    <div id="page-footer">
+        Distributed under <a href="https://www.boost.org/users/license.html">BSL-1.0</a>.
+        Copyright <a href="https://shigekikarita.github.io">Shigeki Karita</a> 2018.
+        Page generated by <a href="https://github.com/adamdruppe/adrdox">adrdox</a>
+    </div>
+</body>
+</html>
